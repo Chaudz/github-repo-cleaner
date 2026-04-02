@@ -12,48 +12,16 @@ app.use(express.json());
 app.use(express.static(join(__dirname, 'public')));
 
 // ─────────────────────────────────────────────
-//  Helpers
+// POST /api/auth — Verify token + get user info
 // ─────────────────────────────────────────────
-function parseGitHubUrl(url) {
-  try {
-    const cleaned = url.trim().replace(/\.git$/, '').replace(/\/$/, '');
-    const match = cleaned.match(/github\.com[/:]([^/]+)\/([^/]+)/);
-    if (!match) return null;
-    return { owner: match[1], repo: match[2] };
-  } catch {
-    return null;
-  }
-}
+app.post('/api/auth', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Token is required.' });
 
-function parseUrls(rawText) {
-  const lines = rawText.split('\n');
-  const valid = [];
-  const invalid = [];
-  for (const line of lines) {
-    const url = line.trim();
-    if (!url || url.startsWith('#')) continue;
-    const parsed = parseGitHubUrl(url);
-    if (parsed) valid.push({ url, ...parsed });
-    else invalid.push(url);
-  }
-  return { valid, invalid };
-}
-
-// ─────────────────────────────────────────────
-//  POST /api/preview — Validate token + parse URLs
-// ─────────────────────────────────────────────
-app.post('/api/preview', async (req, res) => {
-  const { token, urlsText } = req.body;
-
-  if (!token) return res.status(400).json({ error: 'GitHub token is required.' });
-  if (!urlsText) return res.status(400).json({ error: 'No URLs provided.' });
-
-  // Verify token
   const octokit = new Octokit({ auth: token });
   try {
     const { data: user } = await octokit.users.getAuthenticated();
-    const { valid, invalid } = parseUrls(urlsText);
-    return res.json({ user: user.login, avatar: user.avatar_url, valid, invalid });
+    return res.json({ login: user.login, avatar: user.avatar_url, name: user.name });
   } catch (err) {
     const status = err?.status;
     if (status === 401) return res.status(401).json({ error: 'Invalid or expired token.' });
@@ -62,45 +30,82 @@ app.post('/api/preview', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-//  POST /api/delete — Delete repos with SSE stream
+// POST /api/repos — Fetch all repos (paginated)
+// ─────────────────────────────────────────────
+app.post('/api/repos', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Token is required.' });
+
+  const octokit = new Octokit({ auth: token });
+  try {
+    // Use paginate to get all repos automatically
+    const repos = await octokit.paginate(octokit.repos.listForAuthenticatedUser, {
+      per_page: 100,
+      sort: 'updated',
+      direction: 'desc',
+      affiliation: 'owner', // only repos the user owns (not collaborator/org)
+    });
+
+    const result = repos.map((r) => ({
+      id: r.id,
+      name: r.name,
+      full_name: r.full_name,
+      owner: r.owner.login,
+      url: r.html_url,
+      private: r.private,
+      description: r.description || '',
+      language: r.language || null,
+      stars: r.stargazers_count,
+      forks: r.forks_count,
+      updated_at: r.updated_at,
+      size: r.size,
+    }));
+
+    return res.json({ repos: result, total: result.length });
+  } catch (err) {
+    const status = err?.status;
+    if (status === 401) return res.status(401).json({ error: 'Invalid or expired token.' });
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// POST /api/delete — Delete selected repos (SSE)
 // ─────────────────────────────────────────────
 app.post('/api/delete', async (req, res) => {
-  const { token, repos } = req.body; // repos: [{ owner, repo, url }]
+  const { token, repos } = req.body;
 
   if (!token || !repos?.length) {
     return res.status(400).json({ error: 'Token and repos are required.' });
   }
 
-  // Set up Server-Sent Events
+  // Server-Sent Events setup
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const send = (data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   const octokit = new Octokit({ auth: token });
 
   for (let i = 0; i < repos.length; i++) {
-    const { owner, repo, url } = repos[i];
-    send({ type: 'progress', index: i, total: repos.length, owner, repo, status: 'deleting' });
+    const { owner, name } = repos[i];
+    send({ type: 'progress', index: i, total: repos.length, owner, repo: name, status: 'deleting' });
 
     try {
-      await octokit.repos.delete({ owner, repo });
-      send({ type: 'result', index: i, owner, repo, url, status: 'success' });
+      await octokit.repos.delete({ owner, repo: name });
+      send({ type: 'result', index: i, owner, repo: name, status: 'success' });
     } catch (err) {
       let reason = err?.message || 'Unknown error';
       const status = err?.status;
-      if (status === 403) reason = 'Permission denied (missing Administration: Write scope)';
+      if (status === 403) reason = 'Permission denied — token missing Administration: Write scope';
       else if (status === 404) reason = 'Repo not found or already deleted';
       else if (status === 401) reason = 'Unauthorized — invalid token';
-      send({ type: 'result', index: i, owner, repo, url, status: 'failed', reason });
+      send({ type: 'result', index: i, owner, repo: name, status: 'failed', reason });
     }
 
-    // Rate-limit delay
-    if (i < repos.length - 1) await new Promise((r) => setTimeout(r, 400));
+    if (i < repos.length - 1) await new Promise((r) => setTimeout(r, 350));
   }
 
   send({ type: 'done' });
@@ -108,8 +113,8 @@ app.post('/api/delete', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-//  Start
+// Start
 // ─────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🚀 GitHub Repo Deleter UI running at: http://localhost:${PORT}\n`);
+  console.log(`\n🚀 GitHub Repo Deleter UI → http://localhost:${PORT}\n`);
 });

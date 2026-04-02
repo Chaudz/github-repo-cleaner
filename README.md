@@ -1,8 +1,8 @@
 # GitHub Repo Bulk Deleter
 
-A command-line and web-based tool to **permanently delete multiple GitHub repositories in bulk** using the GitHub REST API. Supports both a rich terminal CLI and a local web UI with real-time progress tracking.
+A local web tool to **select and permanently delete multiple GitHub repositories in bulk**. Connect your account once, browse all your repos, tick the ones you want gone, and delete with one click.
 
-> ⚠️ **Destructive operation.** Deleted repositories cannot be recovered. Always double-check your list before proceeding.
+> ⚠️ **Destructive operation.** Deleted repositories cannot be recovered. The tool requires you to type `DELETE` before anything is removed.
 
 ---
 
@@ -13,12 +13,7 @@ A command-line and web-based tool to **permanently delete multiple GitHub reposi
 - [Installation](#installation)
 - [Authentication](#authentication)
 - [Usage](#usage)
-  - [Web UI (Recommended)](#web-ui-recommended)
-  - [CLI — From File](#cli--from-file)
-  - [CLI — Inline URLs](#cli--inline-urls)
-  - [CLI — Pipe via stdin](#cli--pipe-via-stdin)
-  - [Dry Run](#dry-run)
-- [CLI Reference](#cli-reference)
+- [CLI Mode](#cli-mode)
 - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Security Notes](#security-notes)
@@ -27,13 +22,16 @@ A command-line and web-based tool to **permanently delete multiple GitHub reposi
 
 ## Features
 
-- 🖥️ **Web UI** — paste token + URLs in browser, see real-time deletion progress
-- 🖥️ **CLI** — scriptable, pipe-friendly, color-coded output
-- 🔒 **Two-step confirmation** — requires typing `DELETE` before any destructive action
-- 🧪 **Dry-run mode** — preview what would be deleted without touching anything
-- 📡 **Real-time streaming** — Server-Sent Events show per-repo status as it happens
-- ⚠️ **Graceful error handling** — per-repo failure reasons (403, 404, 401) with clear messages
-- 🧹 **Smart URL parsing** — handles `https://`, `.git` suffix, trailing slashes
+| | |
+|---|---|
+| 🖥️ **Web UI** | Load all your repos visually — no URL typing needed |
+| ☑️ **Checkbox selection** | Click to select individual repos or use Select All |
+| 🔍 **Search & Filter** | Filter by name, description, public/private status |
+| 🏷️ **Rich metadata** | See language, star count, last updated date per repo |
+| 📡 **Real-time progress** | Server-Sent Events stream deletion status live |
+| 🔒 **Two-step confirmation** | Must type `DELETE` before any repo is removed |
+| 🧪 **CLI dry-run** | Preview what would be deleted without touching anything |
+| ⚠️ **Clear error messages** | Per-repo failure reason (403, 404, 401) |
 
 ---
 
@@ -49,131 +47,132 @@ A command-line and web-based tool to **permanently delete multiple GitHub reposi
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/Chaudz/github-delete-repos.git
-cd github-delete-repos
+# 1. Clone the repository
+git clone https://github.com/Chaudz/github-repo-cleaner.git
+cd github-repo-cleaner
 
-# Install dependencies
+# 2. Install dependencies
 npm install
 
-# Set up your environment file
+# 3. (Optional) Set up environment file
 cp .env.example .env
+# Edit .env and set GITHUB_TOKEN=your_token_here
 ```
 
 ---
 
 ## Authentication
 
-This tool requires a **GitHub Personal Access Token (PAT)** with permission to delete repositories.
+You need a **GitHub Personal Access Token (PAT)** with permission to delete repositories.
 
-### Option A — Fine-grained Token (Recommended)
+### Option A — Fine-grained token (Recommended)
 
-1. Go to **[GitHub → Settings → Developer settings → Fine-grained tokens](https://github.com/settings/tokens?type=beta)**
+1. Go to **[Settings → Developer settings → Fine-grained tokens](https://github.com/settings/tokens?type=beta)**
 2. Click **Generate new token**
 3. Set **Repository access** → `All repositories`
-4. Under **Permissions → Repository permissions**, find **Administration** → set to `Read and write`
+4. Under **Permissions → Repository permissions**:
+   - **Administration** → `Read and write` ✅
 5. Click **Generate token** and copy the value
 
-### Option B — Classic Token
+### Option B — Classic token
 
-1. Go to **[GitHub → Settings → Tokens (classic)](https://github.com/settings/tokens/new)**
+1. Go to **[Settings → Tokens (classic)](https://github.com/settings/tokens/new)**
 2. Select scope: ✅ `delete_repo`
 3. Click **Generate token** and copy the value
-
-### Configure the token
-
-**Via `.env` file** (recommended for repeated use):
-```bash
-# .env
-GITHUB_TOKEN=github_pat_xxxxxxxxxxxx
-```
-
-**Via CLI flag** (one-off usage):
-```bash
-node index.js --token github_pat_xxxxxxxxxxxx --file repos.txt
-```
 
 ---
 
 ## Usage
 
-### Web UI (Recommended)
-
-The web UI is the easiest way to use this tool — no command-line arguments needed.
+### Start the Web UI
 
 ```bash
 npm run ui
 ```
 
-Then open **http://localhost:3001** in your browser.
-
-**Flow:**
-1. Paste your GitHub token
-2. Paste repo URLs (one per line)
-3. Click **Preview Repos** — verifies your token and parses URLs
-4. Review the list, click **Delete All**
-5. Type `DELETE` in the confirmation dialog
-6. Watch real-time deletion progress per repo
+Open **[http://localhost:3001](http://localhost:3001)** in your browser.
 
 ---
 
-### CLI — From File
+### Step-by-step
 
-Create a `repos.txt` file with one GitHub URL per line:
+**Step 1 — Connect your account**
+
+Paste your GitHub token into the input field and click **Load My Repositories**.
+The tool verifies your token and fetches all repositories you own.
+
+**Step 2 — Select repositories to delete**
+
+Your repos are displayed as a list with metadata (visibility, language, stars, last updated).
+
+- **Click any row** to select/deselect it
+- Use **Search** to filter by name or description
+- Use **Public / Private** filters to narrow down
+- Click **Select All** to select every visible repo at once
+
+**Step 3 — Delete**
+
+When you have repos selected, a floating action bar appears at the bottom.
+Click **Delete Selected**, then type `DELETE` in the confirmation dialog to proceed.
+
+**Step 4 — Monitor progress**
+
+Each repo is deleted sequentially with real-time status updates:
+- ⏳ Deleting…
+- ✅ Deleted
+- ❌ Failed (with reason shown inline)
+
+After completion, a summary shows total / deleted / failed counts.
+Clicking **Done** reloads your repo list automatically.
+
+---
+
+## CLI Mode
+
+If you prefer the terminal, the CLI tool (`index.js`) is still available.
+
+### From a file
+
+Create `repos.txt` with one GitHub URL per line:
 
 ```
-# Lines starting with # are comments and will be ignored
+# Lines starting with # are ignored
 https://github.com/your-username/repo-1
 https://github.com/your-username/repo-2
-https://github.com/your-org/deprecated-project
 ```
 
-Run:
 ```bash
 node index.js --file repos.txt
 ```
 
----
-
-### CLI — Inline URLs
+### Inline URLs
 
 ```bash
 node index.js --urls https://github.com/user/repo1 https://github.com/user/repo2
 ```
 
----
-
-### CLI — Pipe via stdin
+### Pipe from stdin
 
 ```bash
 cat repos.txt | node index.js
-
-# Or combine with other tools
-grep "old-" repos.txt | node index.js
 ```
 
----
-
-### Dry Run
-
-Preview the repos that *would* be deleted — no API calls are made:
+### Dry run (no deletion)
 
 ```bash
 node index.js --file repos.txt --dry-run
 ```
 
----
-
-## CLI Reference
+### CLI Options
 
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--token <token>` | `-t` | GitHub Personal Access Token |
-| `--file <path>` | `-f` | Path to a file containing repo URLs (one per line) |
-| `--urls <url...>` | `-u` | One or more repo URLs (space-separated) |
-| `--yes` | `-y` | Skip interactive confirmation prompts |
-| `--dry-run` | — | Preview repos to delete without actually deleting |
-| `--help` | `-h` | Show help message |
+| `--file <path>` | `-f` | File containing repo URLs (one per line) |
+| `--urls <url...>` | `-u` | URLs directly as arguments |
+| `--yes` | `-y` | Skip confirmation prompts |
+| `--dry-run` | — | Preview without deleting |
+| `--help` | `-h` | Show help |
 
 ---
 
@@ -182,10 +181,10 @@ node index.js --file repos.txt --dry-run
 ```
 .
 ├── index.js          # CLI entry point
-├── server.js         # Express server (Web UI backend + SSE API)
+├── server.js         # Express server (API + SSE streaming)
 ├── public/
-│   └── index.html    # Web UI frontend (single-page, no build step)
-├── repos.txt         # Example file for listing repo URLs
+│   └── index.html    # Web UI (single-page, no build step required)
+├── repos.txt         # Example URL list for CLI mode
 ├── .env.example      # Environment variable template
 ├── .env              # Your local config (gitignored)
 ├── package.json
@@ -196,35 +195,41 @@ node index.js --file repos.txt --dry-run
 
 ## Troubleshooting
 
+### `Network error: Unexpected token '<'...`
+
+Two server instances are running on the same port. Kill them and restart:
+```bash
+lsof -ti :3001 | xargs kill -9; npm run ui
+```
+
 ### `403 Permission denied`
 
-Your token does not have the required `delete_repo` (Classic) or `Administration: Write` (Fine-grained) permission. See [Authentication](#authentication) to create a new token with the right scope.
+Your token is missing the required scope.
+- **Classic token**: needs `delete_repo`
+- **Fine-grained token**: needs `Administration → Read and write`
+
+See [Authentication](#authentication) to create a new token.
 
 ### `404 Not found`
 
-The repository was already deleted, the URL is misspelled, or you don't have access to it. Verify the URL is correct and that your account has admin access to the repo.
+The repository was already deleted, the name is misspelled, or you don't have admin access to it.
 
 ### `401 Unauthorized`
 
-Your token is invalid or has expired. Generate a new token and update your `.env` file.
+Your token has expired or is invalid. Generate a new one and re-enter it.
 
-### `EADDRINUSE: address already in use :::3001`
+### Port already in use
 
-Another process is using port 3001. You can change the port:
+Change the port by setting the `PORT` environment variable:
 ```bash
 PORT=4000 npm run ui
 ```
-
-### Token not picked up from `.env`
-
-Make sure the `.env` file is in the **project root** (same directory as `server.js` / `index.js`) and the variable is named exactly `GITHUB_TOKEN`.
 
 ---
 
 ## Security Notes
 
-- **Never commit your `.env` file.** It is already listed in `.gitignore`.
-- Treat your GitHub token like a password — anyone with it can act on your behalf.
-- For CI/CD or automation, inject `GITHUB_TOKEN` via environment secrets — never hardcode it.
+- **Never commit your `.env` file** — it is listed in `.gitignore` by default.
+- Your token is only used locally and sent directly to the GitHub API. It is never stored or logged by the server.
 - Prefer **Fine-grained tokens** over Classic tokens for minimal permission scope.
-# github-repo-cleaner
+- Revoke your token at [github.com/settings/tokens](https://github.com/settings/tokens) after use if it was created specifically for this tool.
