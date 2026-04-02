@@ -6,6 +6,14 @@ A local web tool to **select and permanently delete multiple GitHub repositories
 
 ---
 
+## Preview
+
+![GitHub Repo Bulk Deleter — repository selection screen](public/home-screen.png)
+
+> **Repo selection screen** — All your repositories loaded automatically. Filter by visibility, search by name, select with a single click. The floating action bar appears when repos are selected.
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
