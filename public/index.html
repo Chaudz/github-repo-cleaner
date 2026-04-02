@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Repo Bulk Deleter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --primary: #f85149;
+      --primary-hover: #ff6b63;
+      --primary-dim: rgba(248,81,73,0.12);
+      --green: #3fb950;
+      --green-dim: rgba(63,185,80,0.12);
+      --yellow: #d29922;
+      --yellow-dim: rgba(210,153,34,0.12);
+      --blue: #58a6ff;
+      --blue-dim: rgba(88,166,255,0.12);
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --text-dim: #484f58;
+      --radius: 10px;
+      --radius-lg: 16px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(22,27,34,0.8);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      width: 38px; height: 38px;
+      background: var(--primary-dim);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header span { color: var(--text-muted); font-size: 14px; margin-left: auto; }
+
+    /* ── Main layout ── */
+    main {
+      width: 100%;
+      max-width: 900px;
+      padding: 40px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Form elements ── */
+    label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; }
+    .input-wrap { position: relative; }
+    input[type="text"], input[type="password"], textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 12px 16px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+    }
+    input[type="password"] { padding-right: 48px; font-family: monospace; letter-spacing: 2px; }
+    .toggle-eye {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 16px; padding: 4px; display: flex; transition: color .15s;
+    }
+    .toggle-eye:hover { color: var(--text); }
+    textarea { resize: vertical; min-height: 180px; line-height: 1.6; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; }
+
+    .hint { font-size: 12px; color: var(--text-dim); margin-top: 7px; }
+    .hint a { color: var(--blue); text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 22px; border-radius: var(--radius);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      border: none; transition: all .18s; white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: var(--blue); color: #0d1117; }
+    .btn-primary:not(:disabled):hover { background: #79b8ff; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(88,166,255,0.3); }
+    .btn-danger { background: var(--primary); color: #fff; }
+    .btn-danger:not(:disabled):hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(248,81,73,0.35); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+    .btn-ghost:not(:disabled):hover { border-color: var(--text-muted); color: var(--text); }
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* ── User badge ── */
+    .user-badge {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--green-dim);
+      border: 1px solid rgba(63,185,80,.25);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-top: 16px;
+      animation: fadeIn .3s ease;
+    }
+    .user-badge img { width: 28px; height: 28px; border-radius: 50%; }
+    .user-badge span { font-size: 13px; color: var(--green); font-weight: 500; }
+
+    /* ── Repo list ── */
+    .repo-count {
+      font-size: 13px; color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .repo-count strong { color: var(--primary); }
+    .repo-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; padding-right: 4px; }
+    .repo-list::-webkit-scrollbar { width: 5px; }
+    .repo-list::-webkit-scrollbar-track { background: transparent; }
+    .repo-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .repo-item {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      animation: slideIn .2s ease;
+      transition: border-color .15s;
+    }
+    .repo-item:hover { border-color: var(--primary); }
+    .repo-icon { font-size: 16px; flex-shrink: 0; }
+    .repo-name { font-weight: 600; font-size: 14px; color: var(--text); }
+    .repo-url { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+    .repo-status {
+      margin-left: auto; font-size: 12px; font-weight: 600;
+      padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+    }
+    .status-pending { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+    .status-deleting { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(210,153,34,.3); animation: pulse 1s infinite; }
+    .status-success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(63,185,80,.3); }
+    .status-failed { background: var(--primary-dim); color: var(--primary); border: 1px solid rgba(248,81,73,.3); }
+    .repo-reason { font-size: 11px; color: var(--primary); margin-top: 4px; }
+
+    .invalid-list { margin-top: 14px; padding: 14px 16px; background: var(--yellow-dim); border: 1px solid rgba(210,153,34,.25); border-radius: var(--radius); }
+    .invalid-list h4 { font-size: 13px; color: var(--yellow); margin-bottom: 8px; }
+    .invalid-list p { font-size: 12px; color: var(--text-muted); font-family: monospace; line-height: 1.8; }
+
+    /* ── Progress bar ── */
+    .progress-wrap { margin-bottom: 20px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+    .progress-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #ff9580); border-radius: 99px; transition: width .4s ease; }
+
+    /* ── Summary box ── */
+    .summary {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      padding: 20px; background: var(--surface2);
+      border-radius: var(--radius); margin-bottom: 20px;
+    }
+    .summary-item { display: flex; flex-direction: column; gap: 4px; }
+    .summary-num { font-size: 28px; font-weight: 700; line-height: 1; }
+    .summary-label { font-size: 12px; color: var(--text-muted); }
+    .num-success { color: var(--green); }
+    .num-failed { color: var(--primary); }
+    .num-total { color: var(--blue); }
+
+    /* ── Confirm modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      animation: fadeIn .2s ease;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      max-width: 440px; width: 90%;
+      animation: scaleIn .2s ease;
+    }
+    .modal h2 { font-size: 18px; margin-bottom: 12px; }
+    .modal p { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 24px; }
+    .modal p strong { color: var(--primary); }
+    .modal-confirm-input {
+      margin-bottom: 20px;
+    }
+    .modal-confirm-input label { color: var(--text-muted); font-size: 13px; }
+    .modal-confirm-input input { margin-top: 8px; font-family: monospace; letter-spacing: 1px; }
+
+    /* ── State pages ── */
+    #page-input { display: flex; flex-direction: column; gap: 24px; }
+    #page-preview { display: none; flex-direction: column; gap: 24px; }
+    #page-result { display: none; flex-direction: column; gap: 24px; }
+    .active { display: flex !important; }
+
+    /* ── Animations ── */
+    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(.95) } to { opacity: 1; transform: none } }
+    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
+    @keyframes spin { to { transform: rotate(360deg) } }
+
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin .6s linear infinite; }
+
+    .divider { height: 1px; background: var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">🗑️</div>
+  <h1>GitHub Repo Bulk Deleter</h1>
+  <span>Delete multiple repositories at once</span>
+</header>
+
+<main>
+
+  <!-- ══════════════ PAGE: INPUT ══════════════ -->
+  <div id="page-input" class="active">
+
+    <!-- Token card -->
+    <div class="card">
+      <div class="card-title">🔑 Step 1 — GitHub Token</div>
+      <label for="token-input">Personal Access Token</label>
+      <div class="input-wrap">
+        <input type="password" id="token-input" placeholder="github_pat_... or ghp_..." autocomplete="off" />
+        <button class="toggle-eye" id="toggle-eye" title="Show/hide token">👁</button>
+      </div>
+      <p class="hint">
+        Need a token? <a href="https://github.com/settings/tokens/new" target="_blank">Create one here</a>.
+        Required scope (Classic): <strong>delete_repo</strong> &nbsp;|&nbsp;
+        Fine-grained: <strong>Administration → Read &amp; Write</strong>
+      </p>
+      <div id="user-badge" class="user-badge" style="display:none"></div>
+    </div>
+
+    <!-- URLs card -->
+    <div class="card">
+      <div class="card-title">📋 Step 2 — Repo URLs</div>
+      <label for="urls-input">GitHub repository URLs <span style="font-weight:400">(one per line)</span></label>
+      <textarea id="urls-input" placeholder="https://github.com/your-username/repo-1&#10;https://github.com/your-username/repo-2&#10;https://github.com/your-org/old-project"></textarea>
+      <p class="hint">Lines starting with # are ignored. Supports .git suffix and SSH-style URLs.</p>
+    </div>
+
+    <!-- Action -->
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-preview">
+        <span id="preview-spinner" class="spinner" style="display:none"></span>
+        Preview Repos
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ══════════════ PAGE: PREVIEW ══════════════ -->
+  <div id="page-preview">
+
+    <div class="card">
+      <div class="card-title">⚠️ Confirm Deletion</div>
+      <div class="repo-count">Found <strong id="repo-count-num">0</strong> valid repo(s) to delete</div>
+      <div class="repo-list" id="preview-list"></div>
+      <div id="invalid-section" style="display:none"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-danger" id="btn-delete">🗑️ Delete All</button>
+      <button class="btn btn-ghost" id="btn-back">← Back</button>
+    </div>
+
+  </div>
+
+  <!-- ══════════════ PAGE: RESULT ══════════════ -->
+  <div id="page-result">
+
+    <div class="card">
+      <div class="card-title">⚙️ Deleting Repos...</div>
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span id="progress-text">0 / 0</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+
+      <div class="repo-list" id="result-list"></div>
+    </div>
+
+    <div id="summary-card" class="card" style="display:none">
+      <div class="card-title">📊 Summary</div>
+      <div class="summary" id="summary-box"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-restart">🔄 Start Over</button>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<!-- ══════ CONFIRM MODAL ══════ -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <h2>⚠️ Final Confirmation</h2>
+    <p>
+      You're about to permanently delete <strong id="modal-count">0</strong> repo(s).
+      This action <strong>CANNOT be undone</strong>. All code, issues, and releases will be lost forever.
+    </p>
+    <div class="modal-confirm-input">
+      <label for="confirm-input">Type <strong style="color:var(--primary)">DELETE</strong> to confirm:</label>
+      <input type="text" id="confirm-input" placeholder="DELETE" autocomplete="off" />
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="modal-confirm-btn" disabled>Confirm Delete</button>
+      <button class="btn btn-ghost" id="modal-cancel-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────
+  let validRepos = [];
+  let authUser = null;
+
+  // ── DOM refs ───────────────────────────────────
+  const $ = (id) => document.getElementById(id);
+  const pageInput   = $('page-input');
+  const pagePreview = $('page-preview');
+  const pageResult  = $('page-result');
+
+  function showPage(page) {
+    [pageInput, pagePreview, pageResult].forEach(p => p.classList.remove('active'));
+    page.classList.add('active');
+  }
+
+  // ── Toggle token visibility ────────────────────
+  $('toggle-eye').addEventListener('click', () => {
+    const inp = $('token-input');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+
+  // ── Preview ────────────────────────────────────
+  $('btn-preview').addEventListener('click', async () => {
+    const token = $('token-input').value.trim();
+    const urlsText = $('urls-input').value.trim();
+
+    if (!token) return alert('Please enter your GitHub token.');
+    if (!urlsText) return alert('Please enter at least one repo URL.');
+
+    const btn = $('btn-preview');
+    const spinner = $('preview-spinner');
+    btn.disabled = true;
+    spinner.style.display = 'inline-block';
+
+    try {
+      const res = await fetch('/api/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, urlsText }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert('Error: ' + data.error);
+        return;
+      }
+
+      // Show user badge
+      authUser = data.user;
+      const badge = $('user-badge');
+      badge.style.display = 'flex';
+      badge.innerHTML = `<img src="${data.avatar}" alt="${data.user}" /><span>✅ Authenticated as <strong>${data.user}</strong></span>`;
+
+      validRepos = data.valid;
+
+      if (validRepos.length === 0) {
+        alert('No valid GitHub repo URLs found.');
+        return;
+      }
+
+      // Build preview list
+      $('repo-count-num').textContent = validRepos.length;
+      const list = $('preview-list');
+      list.innerHTML = validRepos.map((r, i) => `
+        <div class="repo-item" id="preview-item-${i}">
+          <span class="repo-icon">📦</span>
+          <div>
+            <div class="repo-name">${r.owner}/${r.repo}</div>
+            <div class="repo-url">${r.url}</div>
+          </div>
+          <span class="repo-status status-pending">Pending</span>
+        </div>
+      `).join('');
+
+      // Invalid URLs
+      const inv = $('invalid-section');
+      if (data.invalid.length > 0) {
+        inv.style.display = 'block';
+        inv.innerHTML = `
+          <div class="invalid-list">
+            <h4>⚠️ ${data.invalid.length} invalid URL(s) will be skipped:</h4>
+            <p>${data.invalid.map(u => `• ${u}`).join('<br>')}</p>
+          </div>`;
+      } else {
+        inv.style.display = 'none';
+      }
+
+      showPage(pagePreview);
+
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = 'none';
+    }
+  });
+
+  // ── Back ───────────────────────────────────────
+  $('btn-back').addEventListener('click', () => showPage(pageInput));
+
+  // ── Delete button → open modal ─────────────────
+  $('btn-delete').addEventListener('click', () => {
+    $('modal-count').textContent = validRepos.length;
+    $('confirm-input').value = '';
+    $('modal-confirm-btn').disabled = true;
+    $('modal').classList.remove('hidden');
+    setTimeout(() => $('confirm-input').focus(), 100);
+  });
+
+  $('modal-cancel-btn').addEventListener('click', () => $('modal').classList.add('hidden'));
+  $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) $('modal').classList.add('hidden'); });
+
+  $('confirm-input').addEventListener('input', (e) => {
+    $('modal-confirm-btn').disabled = e.target.value !== 'DELETE';
+  });
+
+  $('modal-confirm-btn').addEventListener('click', () => {
+    $('modal').classList.add('hidden');
+    startDeletion();
+  });
+
+  // ── Deletion with SSE ──────────────────────────
+  async function startDeletion() {
+    const token = $('token-input').value.trim();
+    showPage(pageResult);
+
+    // Build result list (all pending)
+    const resList = $('result-list');
+    resList.innerHTML = validRepos.map((r, i) => `
+      <div class="repo-item" id="res-item-${i}">
+        <span class="repo-icon" id="res-icon-${i}">📦</span>
+        <div style="flex:1">
+          <div class="repo-name">${r.owner}/${r.repo}</div>
+          <div class="repo-url">${r.url}</div>
+          <div class="repo-reason" id="res-reason-${i}" style="display:none"></div>
+        </div>
+        <span class="repo-status status-pending" id="res-status-${i}">Pending</span>
+      </div>
+    `).join('');
+
+    let done = 0, succeeded = 0, failed = 0;
+
+    const update = (index, status, reason) => {
+      const statusEl = $(`res-status-${index}`);
+      const iconEl   = $(`res-icon-${index}`);
+      const reasonEl = $(`res-reason-${index}`);
+
+      if (status === 'deleting') {
+        statusEl.className = 'repo-status status-deleting';
+        statusEl.textContent = 'Deleting…';
+        iconEl.textContent = '⏳';
+        $(`res-item-${index}`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (status === 'success') {
+        statusEl.className = 'repo-status status-success';
+        statusEl.textContent = '✅ Deleted';
+        iconEl.textContent = '✅';
+        done++; succeeded++;
+      } else {
+        statusEl.className = 'repo-status status-failed';
+        statusEl.textContent = '❌ Failed';
+        iconEl.textContent = '❌';
+        if (reason) { reasonEl.style.display = 'block'; reasonEl.textContent = reason; }
+        done++; failed++;
+      }
+
+      // Update progress
+      const pct = Math.round((done / validRepos.length) * 100);
+      $('progress-fill').style.width = pct + '%';
+      $('progress-text').textContent = `${done} / ${validRepos.length}`;
+      $('progress-pct').textContent = pct + '%';
+    };
+
+    // Start SSE stream
+    try {
+      const res = await fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, repos: validRepos }),
+      });
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const event = JSON.parse(line.slice(6));
+
+          if (event.type === 'progress') {
+            update(event.index, 'deleting');
+          } else if (event.type === 'result') {
+            update(event.index, event.status, event.reason);
+          } else if (event.type === 'done') {
+            showSummary(succeeded, failed);
+          }
+        }
+      }
+    } catch (err) {
+      alert('Connection error: ' + err.message);
+    }
+  }
+
+  function showSummary(succeeded, failed) {
+    $('summary-card').style.display = 'flex';
+    $('summary-box').innerHTML = `
+      <div class="summary-item">
+        <span class="summary-num num-total">${validRepos.length}</span>
+        <span class="summary-label">Total</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-num num-success">${succeeded}</span>
+        <span class="summary-label">Deleted</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-num num-failed">${failed}</span>
+        <span class="summary-label">Failed</span>
+      </div>
+    `;
+    $('summary-card').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  $('btn-restart').addEventListener('click', () => {
+    validRepos = [];
+    $('token-input').value = '';
+    $('urls-input').value = '';
+    $('user-badge').style.display = 'none';
+    $('summary-card').style.display = 'none';
+    showPage(pageInput);
+  });
+</script>
+</body>
+</html>

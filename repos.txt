@@ -1,0 +1,12 @@
+# GitHub repo URLs to delete (one per line)
+# Lines starting with # are ignored
+
+# Example:
+# https://github.com/your-username/repo-1
+# https://github.com/your-username/repo-2
+# https://github.com/your-org/repo-3
+
+
+
+https://github.com/Chaudz/trungquandev
+https://github.com/Chaudz/ty-8-3
